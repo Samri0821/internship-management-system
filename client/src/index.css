@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    margin: 0;
+    width: 100%;
+    min-height: 100%;
+  }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #1f2937;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+}
+
+/* =========================================
+   GLOBAL INTERNSHIP SYSTEM BACKGROUND
+   ========================================= */
+
+body {
+  min-height: 100vh;
+
+  background-color: #020617;
+
+  background-image:
+    linear-gradient(
+      rgba(2, 6, 23, 0.60),
+      rgba(2, 6, 23, 0.70)
+    ),
+    url("./assets/internship-background.png");
+
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* Allow the background to be visible on every page */
+#root {
+  min-height: 100vh;
+  background: transparent;
+}
