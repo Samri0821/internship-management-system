@@ -17,7 +17,7 @@ services:
       - key: GITHUB_CLIENT_SECRET
         sync: false
       - key: GITHUB_CALLBACK_URL
-        sync: false
+        value: https://internship-management-api-4p3t.onrender.com/api/github/callback
 
   - type: web
     name: internship-management-client
@@ -27,7 +27,7 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        sync: false
+        value: https://internship-management-api-4p3t.onrender.com/api
     routes:
       - type: rewrite
         source: /*
