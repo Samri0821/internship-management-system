@@ -1,19 +1,47 @@
+
 import mongoose from "mongoose";
 
 const internshipSchema = new mongoose.Schema(
   {
+    // ==========================================
+    // ASSIGNED INTERN
+    // ==========================================
+    // Empty when the opportunity is first posted.
+    // Filled after an application is approved.
     intern: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: false
     },
 
+    // ==========================================
+    // COMPANY
+    // ==========================================
     organization: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
+      default: "EWENET Communication PLC"
     },
 
+    // ==========================================
+    // ELIGIBLE FIELD OF STUDY
+    // ==========================================
+    fieldOfStudy: {
+      type: String,
+      required: true,
+      enum: [
+        "Computer Science",
+        "Software Engineering",
+        "Information Technology",
+        "Information Systems",
+        "Cybersecurity"
+      ]
+    },
+
+    // ==========================================
+    // INTERNSHIP INFORMATION
+    // ==========================================
     department: {
       type: String,
       required: true,
@@ -35,7 +63,6 @@ const internshipSchema = new mongoose.Schema(
     // ==========================================
     // INTERNSHIP LOCATION
     // ==========================================
-
     latitude: {
       type: Number,
       required: true
@@ -51,6 +78,9 @@ const internshipSchema = new mongoose.Schema(
       default: 200
     },
 
+    // ==========================================
+    // DATES
+    // ==========================================
     startDate: {
       type: Date,
       required: true
@@ -61,6 +91,9 @@ const internshipSchema = new mongoose.Schema(
       required: true
     },
 
+    // ==========================================
+    // STATUS
+    // ==========================================
     status: {
       type: String,
       enum: [
@@ -72,6 +105,9 @@ const internshipSchema = new mongoose.Schema(
       default: "upcoming"
     },
 
+    // ==========================================
+    // DESCRIPTION
+    // ==========================================
     description: {
       type: String,
       default: ""

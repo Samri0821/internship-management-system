@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GitHub Test</title>
+</head>
+
+<body>
+
+  <h2>Connect GitHub</h2>
+
+  <button onclick="connectGitHub()">
+    Connect GitHub
+  </button>
+
+  <script>
+    function connectGitHub() {
+
+      const token = prompt(
+        "Paste your intern JWT token:"
+      );
+
+      if (!token) {
+        alert("Token is required");
+        return;
+      }
+
+      fetch("http://localhost:5000/api/github/login", {
+        method: "GET",
+        headers: {
+          Authorization: "Bearer " + token
+        }
+      })
+      .then(response => {
+        if (response.redirected) {
+          window.location.href = response.url;
+        } else {
+          return response.json();
+        }
+      })
+      .then(data => {
+        if (data) {
+          console.log(data);
+          alert(JSON.stringify(data));
+        }
+      })
+      .catch(error => {
+        console.error(error);
+      });
+    }
+  </script>
+
+</body>
+</html>

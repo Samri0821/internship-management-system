@@ -8,53 +8,65 @@ const router = express.Router();
 
 
 // ==========================================
-// CREATE INTERNSHIP
+// CREATE INTERNSHIP OPPORTUNITY
 // ADMIN ONLY
 // ==========================================
 router.post("/", protect, adminOnly, async (req, res) => {
   try {
     const {
-      intern,
       organization,
+      fieldOfStudy,
       department,
       position,
       supervisor,
       startDate,
       endDate,
-      description
+      description,
+      latitude,
+      longitude,
+      allowedRadius
     } = req.body;
 
-    // Validate required fields
+    // ==========================================
+    // VALIDATE REQUIRED FIELDS
+    // ==========================================
     if (
-      !intern ||
       !organization ||
+      !fieldOfStudy ||
       !department ||
       !position ||
       !supervisor ||
       !startDate ||
-      !endDate
+      !endDate ||
+      latitude === undefined ||
+      longitude === undefined
     ) {
       return res.status(400).json({
-        message: "Please provide all required fields"
+        message:
+          "Please provide all required fields including GPS location"
       });
     }
 
-    // Check intern
-    const internUser = await User.findById(intern);
+    // ==========================================
+    // VALIDATE FIELD OF STUDY
+    // ==========================================
+    const allowedFields = [
+      "Computer Science",
+      "Software Engineering",
+      "Information Technology",
+      "Information Systems",
+      "Cybersecurity"
+    ];
 
-    if (!internUser) {
-      return res.status(404).json({
-        message: "Intern not found"
-      });
-    }
-
-    if (internUser.role !== "intern") {
+    if (!allowedFields.includes(fieldOfStudy)) {
       return res.status(400).json({
-        message: "Selected user is not an intern"
+        message: "Invalid field of study"
       });
     }
 
-    // Check supervisor
+    // ==========================================
+    // CHECK SUPERVISOR
+    // ==========================================
     const supervisorUser = await User.findById(supervisor);
 
     if (!supervisorUser) {
@@ -69,43 +81,147 @@ router.post("/", protect, adminOnly, async (req, res) => {
       });
     }
 
-    // Create internship
+    // ==========================================
+    // CREATE INTERNSHIP
+    // ==========================================
     const internship = await Internship.create({
-      intern,
-      organization,
-      department,
-      position,
+      organization: organization.trim(),
+      fieldOfStudy,
+      department: department.trim(),
+      position: position.trim(),
       supervisor,
       startDate,
       endDate,
-      description
+      description: description || "",
+      latitude: Number(latitude),
+      longitude: Number(longitude),
+      allowedRadius:
+        allowedRadius !== undefined
+          ? Number(allowedRadius)
+          : 200
     });
 
+    // ==========================================
+    // POPULATE SUPERVISOR
+    // ==========================================
+    const populatedInternship = await Internship.findById(
+      internship._id
+    ).populate("supervisor", "name email role");
+
     res.status(201).json({
-      message: "Internship created successfully",
-      internship
+      message: "Internship opportunity created successfully",
+      internship: populatedInternship
     });
 
   } catch (error) {
     console.error("Create Internship Error:", error);
 
     res.status(500).json({
-      message: "Server error while creating internship"
+      message: "Server error while creating internship",
+      error: error.message
     });
   }
 });
 
 
 // ==========================================
-// GET MY INTERNSHIP
+// GET AVAILABLE INTERNSHIP OPPORTUNITIES
+// INTERN ONLY
+// ALL FIELDS OF STUDY CAN SEE THEM
+// ==========================================
+router.get("/available", protect, async (req, res) => {
+  try {
+    // ==========================================
+    // GET LOGGED-IN INTERN
+    // ==========================================
+    const intern = await User.findById(req.user.userId);
+
+    if (!intern) {
+      return res.status(404).json({
+        message: "Intern not found"
+      });
+    }
+
+    // ==========================================
+    // CHECK ROLE
+    // ==========================================
+    if (intern.role !== "intern") {
+      return res.status(403).json({
+        message: "Only interns can view available opportunities"
+      });
+    }
+
+    // ==========================================
+    // GET ALL AVAILABLE INTERNSHIPS
+    // FIELD OF STUDY DOES NOT RESTRICT RESULTS
+    // ==========================================
+    const internships = await Internship.find({
+      intern: null,
+      status: "upcoming"
+    })
+      .populate(
+        "supervisor",
+        "name email role"
+      )
+      .sort({ createdAt: -1 });
+
+    // ==========================================
+    // RETURN RESULTS
+    // ==========================================
+    res.json({
+      count: internships.length,
+      internships
+    });
+
+  } catch (error) {
+    console.error(
+      "Get Available Internships Error:",
+      error
+    );
+
+    res.status(500).json({
+      message:
+        "Server error while getting available internships",
+      error: error.message
+    });
+  }
+});
+
+
+// ==========================================
+// GET MY ASSIGNED INTERNSHIP
 // INTERN ONLY
 // ==========================================
 router.get("/my", protect, async (req, res) => {
   try {
+    // ==========================================
+    // CHECK INTERN
+    // ==========================================
+    const intern = await User.findById(req.user.userId);
+
+    if (!intern) {
+      return res.status(404).json({
+        message: "Intern not found"
+      });
+    }
+
+    if (intern.role !== "intern") {
+      return res.status(403).json({
+        message:
+          "Only interns can view their assigned internship"
+      });
+    }
+
+    // ==========================================
+    // FIND ASSIGNED INTERNSHIPS
+    // ==========================================
     const internships = await Internship.find({
       intern: req.user.userId
     })
-      .populate("supervisor", "name email")
+      .populate(
+        "supervisor",
+        "name email role"
+      )
       .sort({ createdAt: -1 });
 
     res.json({
@@ -114,10 +230,15 @@ router.get("/my", protect, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Get My Internship Error:", error);
+    console.error(
+      "Get My Internship Error:",
+      error
+    );
 
     res.status(500).json({
-      message: "Server error while getting internship"
+      message:
+        "Server error while getting my internship",
+      error: error.message
     });
   }
 });
@@ -130,8 +251,14 @@ router.get("/my", protect, async (req, res) => {
 router.get("/all", protect, adminOnly, async (req, res) => {
   try {
     const internships = await Internship.find()
-      .populate("intern", "name email")
-      .populate("supervisor", "name email")
+      .populate(
+        "intern",
+        "name email university fieldOfStudy role"
+      )
+      .populate(
+        "supervisor",
+        "name email role"
+      )
       .sort({ createdAt: -1 });
 
     res.json({
@@ -140,69 +267,132 @@ router.get("/all", protect, adminOnly, async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Get All Internships Error:", error);
-
-    res.status(500).json({
-      message: "Server error while getting internships"
-    });
-  }
-});
-
-// ==========================================
-// UPDATE INTERNSHIP GPS LOCATION
-// ADMIN ONLY - DEVELOPMENT
-// ==========================================
-router.patch("/:id/location", protect, adminOnly, async (req, res) => {
-  try {
-    const {
-      latitude,
-      longitude,
-      allowedRadius
-    } = req.body;
-
-    if (
-      latitude === undefined ||
-      longitude === undefined
-    ) {
-      return res.status(400).json({
-        message: "Latitude and longitude are required"
-      });
-    }
-
-    const internship = await Internship.findById(
-      req.params.id
-    );
-
-    if (!internship) {
-      return res.status(404).json({
-        message: "Internship not found"
-      });
-    }
-
-    internship.latitude = latitude;
-    internship.longitude = longitude;
-
-    if (allowedRadius !== undefined) {
-      internship.allowedRadius = allowedRadius;
-    }
-
-    await internship.save();
-
-    res.json({
-      message: "Internship GPS location updated successfully",
-      internship
-    });
-
-  } catch (error) {
     console.error(
-      "Update GPS Location Error:",
+      "Get All Internships Error:",
       error
     );
 
     res.status(500).json({
-      message: "Server error while updating GPS location"
+      message:
+        "Server error while getting internships",
+      error: error.message
     });
   }
 });
+
+
+// ==========================================
+// UPDATE INTERNSHIP GPS LOCATION
+// ADMIN ONLY
+// ==========================================
+router.patch(
+  "/:id/location",
+  protect,
+  adminOnly,
+  async (req, res) => {
+    try {
+      const {
+        latitude,
+        longitude,
+        allowedRadius
+      } = req.body;
+
+      // ==========================================
+      // VALIDATE GPS
+      // ==========================================
+      if (
+        latitude === undefined ||
+        longitude === undefined
+      ) {
+        return res.status(400).json({
+          message:
+            "Latitude and longitude are required"
+        });
+      }
+
+      const newLatitude = Number(latitude);
+      const newLongitude = Number(longitude);
+
+      if (
+        Number.isNaN(newLatitude) ||
+        Number.isNaN(newLongitude)
+      ) {
+        return res.status(400).json({
+          message:
+            "Latitude and longitude must be valid numbers"
+        });
+      }
+
+      // ==========================================
+      // FIND INTERNSHIP
+      // ==========================================
+      const internship =
+        await Internship.findById(req.params.id);
+
+      if (!internship) {
+        return res.status(404).json({
+          message: "Internship not found"
+        });
+      }
+
+      // ==========================================
+      // UPDATE GPS
+      // ==========================================
+      internship.latitude = newLatitude;
+      internship.longitude = newLongitude;
+
+      if (allowedRadius !== undefined) {
+        const newRadius = Number(allowedRadius);
+
+        if (
+          Number.isNaN(newRadius) ||
+          newRadius <= 0
+        ) {
+          return res.status(400).json({
+            message:
+              "Allowed radius must be a valid positive number"
+          });
+        }
+
+        internship.allowedRadius = newRadius;
+      }
+
+      await internship.save();
+
+      // ==========================================
+      // RETURN UPDATED INTERNSHIP
+      // ==========================================
+      const updatedInternship =
+        await Internship.findById(internship._id)
+          .populate(
+            "intern",
+            "name email university fieldOfStudy role"
+          )
+          .populate(
+            "supervisor",
+            "name email role"
+          );
+
+      res.json({
+        message:
+          "Internship GPS location updated successfully",
+        internship: updatedInternship
+      });
+
+    } catch (error) {
+      console.error(
+        "Update GPS Location Error:",
+        error
+      );
+
+      res.status(500).json({
+        message:
+          "Server error while updating internship GPS location",
+        error: error.message
+      });
+    }
+  }
+);
+
 
 export default router;

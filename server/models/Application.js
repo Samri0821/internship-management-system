@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const applicationSchema = new mongoose.Schema(
   {
+    internship: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "Internship",
+  required: true
+},
     applicant: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
